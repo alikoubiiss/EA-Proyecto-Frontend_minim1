@@ -1,0 +1,61 @@
+<h3>{{ isEditing ? 'Editar motivo' : 'Registrar un cambio a mano' }}</h3>
+
+@if (error()) {
+  <p class="alert">{{ error() }}</p>
+}
+
+<form [formGroup]="form" (ngSubmit)="save()">
+  @if (!isEditing) {
+    <label>
+      Campo modificado *
+      <select formControlName="field">
+        <option value="name">Nombre</option>
+        <option value="description">Descripción</option>
+        <option value="dayOfWeek">Día</option>
+      </select>
+    </label>
+
+    @if (form.controls.field.value === 'dayOfWeek') {
+      <label>
+        Día anterior
+        <select formControlName="oldDay">
+          @for (day of days; track day) {
+            <option [value]="day">{{ dayLabels[day] }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        Día nuevo
+        <select formControlName="newDay">
+          @for (day of days; track day) {
+            <option [value]="day">{{ dayLabels[day] }}</option>
+          }
+        </select>
+      </label>
+    } @else {
+      <label>
+        Valor anterior
+        <input type="text" formControlName="oldText" />
+      </label>
+      <label>
+        Valor nuevo
+        <input type="text" formControlName="newText" />
+      </label>
+    }
+  }
+
+  <label>
+    Motivo
+    <textarea formControlName="reason" rows="2" maxlength="200"></textarea>
+    @if (form.controls.reason.touched && form.controls.reason.invalid) {
+      <small class="field-error">Máximo 200 caracteres</small>
+    }
+  </label>
+
+  <div class="form-actions">
+    <button type="submit" [disabled]="form.invalid || saving()">
+      {{ saving() ? 'Guardando...' : 'Guardar' }}
+    </button>
+    <button type="button" class="secondary" (click)="cancelled.emit()">Cancelar</button>
+  </div>
+</form>
