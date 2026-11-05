@@ -63,10 +63,11 @@ Todo salvo `/login` y `/register` pide sesión, y las pantallas de gestión pide
 | `/exercises/:id/edit` | Editar ejercicio | `ADMIN`         | Lo mismo, con los datos cargados                                                                                           |
 | `/workouts`           | Rutinas          | `ADMIN`         | Lista paginada: buscador por nombre o descripción, filtro por día, orden por columna, borrado simple y múltiple            |
 | `/workouts/new`       | Nueva rutina     | `ADMIN`         | `name`, `dayOfWeek`, `description` y `exercises` (multiselección)                                                          |
-| `/workouts/:id/edit`  | Editar rutina    | `ADMIN`         | Lo mismo, con los datos cargados                                                                                           |
+| `/workouts/:id/edit`  | Editar rutina    | `ADMIN`         | Lo mismo, con los datos cargados y, debajo, el historial de cambios de la rutina                                           |
 | `/users`              | Usuarios         | `ADMIN`         | Lista paginada de `_id` y `name`: buscador, orden por nombre, borrado simple y múltiple                                    |
 | `/users/new`          | Nuevo usuario    | `ADMIN`         | `name`, `email`, `password` y `role`                                                                                       |
 | `/users/:id/edit`     | Editar usuario   | `ADMIN`         | Lo mismo; la contraseña solo se envía si se escribe                                                                        |
+| `/workout-changes`    | Historial        | con sesión      | Historial de cambios de todas las rutinas (`?workoutId=` filtra por una). Revertir es solo de `ADMIN`                      |
 | `/chat`               | Chat             | con sesión      | Salas general, de grupo y directa, con el historial y la lista de usuarios                                                 |
 | cualquier otra        | —                | —               | Vuelve a `/` (o al login, si no hay sesión)                                                                                |
 
@@ -109,6 +110,25 @@ pide uno nuevo a `POST /auth/refresh` y repite la petición, sin que el usuario 
 token también venció (a los 7 días), cierra la sesión y lleva al login. Cómo funciona por dentro, en el
 [apartado 13 de la GUIA](GUIA.md#13-autenticación-interceptor-y-guards).
 
+## Historial de cambios y reversión (Ejercicio tipo 3)
+
+### Justificación de la entidad relacionada
+La interfaz implementa el registro de auditoría y reversión para la entidad **`Workout` (rutina)**. Se ha elegido porque sus modificaciones y borrados lógicos disponen de estados reversibles y varios tipos de datos visualizables (ejercicios, días de la semana, descripción).
+
+### Elementos implementados
+- **Modelos TypeScript** ([workout-change.model.ts](src/app/models/workout-change.model.ts)): Tipado de `WorkoutChange`, el subdocumento `FieldChange` (campo, valores anterior/nuevo, fecha), la respuesta paginada `WorkoutChangesPage` y los parámetros de filtrado `WorkoutChangeListParams`. Reexportados en `models/index.ts`.
+- **Servicio Angular** ([workout-change.service.ts](src/app/services/workout-change.service.ts)): Centraliza todas las llamadas HTTP a `/workout-changes`: listado paginado con filtros (`getChanges`), historial por rutina (`getWorkoutHistory`), detalle (`getChange`), alta manual (`createChange`), actualización de motivo (`updateReason`), reversión (`revertChange`) y borrado lógico/definitivo (`softDeleteChange`, `hardDeleteChange`).
+- **Componentes standalone**:
+  - `WorkoutChangesList`: Componente de tabla con **paginación y búsqueda en servidor** (5 elementos por página), filtros combinables (texto, acción, revertido, rango de fechas `from`/`to`) y modales de confirmación para reversión y borrado. Formatea valores para mostrar texto legible (p. ej. `X ejercicios`, días traducidos, `Sí/No`).
+  - `WorkoutChangeForm`: Formulario para registrar un cambio manual sobre una rutina o actualizar el motivo de una entrada existente.
+- **Integración en vistas existentes**:
+  - En **Editar rutina** (`/workouts/:id/edit`): Se incrusta el historial de la rutina al pie de página. Al revertir un cambio, se emite un evento `workoutReverted` que recarga automáticamente la rutina en el formulario sin refrescar el navegador.
+  - En **Página general** (`/workout-changes`): Vista global del historial con soporte para filtrar por `?workoutId=...`.
+- **Seguridad, JWT y Roles**:
+  - La ruta `/workout-changes` está protegida con `authGuard`.
+  - El token JWT y su refresco son gestionados de forma transparente por el `authInterceptor` existente.
+  - Los botones de acción se adaptan al rol: **Revertir** solo es visible para usuarios con rol `ADMIN`; **Motivo** y **Borrar** están disponibles para el autor del registro o administradores. Si el backend rechaza una operación (por ejemplo con 409 Conflict), el mensaje de error se visualiza de forma destacada sobre la tabla.
+
 ## Estructura del proyecto
 
 ```
@@ -129,7 +149,9 @@ src/
       exercises-list/      Lista de ejercicios: buscador, filtro, orden, paginación y borrado múltiple
       exercise-form/       Crear y editar ejercicios
       workouts-list/       Lista de rutinas: buscador, filtro por día, orden, paginación y borrado múltiple
-      workout-form/        Crear y editar rutinas
+      workout-form/        Crear y editar rutinas (con el historial de cambios integrado al editar)
+      workout-changes-list/ Historial de cambios de las rutinas: paginación, buscador, filtros y revertir
+      workout-change-form/ Registrar un cambio a mano y editar el motivo de una entrada
       users-list/          Lista de usuarios: buscador, orden, paginación y borrado múltiple
       user-form/           Crear y editar usuarios
       chat/                Chat en tiempo real: sala general, de grupo y directa
@@ -141,12 +163,14 @@ src/
       user.model.ts          User, UserSummary, UserInput y las peticiones y respuestas de /auth
       exercise.model.ts      Exercise, ExerciseInput, EXERCISE_CATEGORIES y sus etiquetas
       workout.model.ts       Workout, WorkoutInput, DAYS_OF_WEEK y sus etiquetas
+      workout-change.model.ts WorkoutChange, FieldChange (subdocumento), la página y los filtros del historial
       index.ts               Reexporta todo: import { ... } from '../../models'
     services/              Las únicas piezas que hablan con la API
       auth.service.ts        register, login, refresh, logout y el usuario con sesión (signal)
       user.service.ts        getUsers, getUser, create, update, softDelete y hardDelete (suelto y en bloque)
       exercise.service.ts    Lo mismo para /exercises
       workout.service.ts     Lo mismo para /workouts
+      workout-change.service.ts Todas las peticiones de /workout-changes: lista, historial de una rutina, alta, motivo, revertir y borrado
       chat.service.ts        Conecta socket.io, entra en una sala y manda y recibe mensajes
     guards/
       auth.guard.ts          authGuard, adminGuard y guestGuard: quién puede entrar en cada ruta

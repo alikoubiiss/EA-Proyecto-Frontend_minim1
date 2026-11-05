@@ -16,15 +16,22 @@ import { ExerciseService } from '../../services/exercise.service';
 import { WorkoutService } from '../../services/workout.service';
 import { apiErrorMessage } from '../../utils/api-error';
 import { ConfirmModal } from '../confirm-modal/confirm-modal';
+import { WorkoutChangesList } from '../workout-changes-list/workout-changes-list';
 
 @Component({
   selector: 'app-workout-form',
-  imports: [ReactiveFormsModule, RouterLink, ConfirmModal],
+  imports: [ReactiveFormsModule, RouterLink, ConfirmModal, WorkoutChangesList],
   templateUrl: './workout-form.html',
   styles: `
     :host {
       display: block;
+      max-width: 860px;
+    }
+    form {
       max-width: 560px;
+    }
+    .history {
+      margin-top: 2rem;
     }
   `,
 })
@@ -116,6 +123,20 @@ export class WorkoutForm implements OnInit {
         this.error.set(apiErrorMessage(err));
         this.saving.set(false);
       },
+    });
+  }
+
+  /** Un admin ha revertido un cambio en el historial: vuelvo a leer la rutina para que el formulario
+   *  enseñe los valores restaurados */
+  reloadWorkout(): void {
+    const id = this.id();
+    if (!id) {
+      return;
+    }
+
+    this.workoutService.getWorkout(id).subscribe({
+      next: (response) => this.fillForm(response.workout),
+      error: (err: HttpErrorResponse) => this.error.set(apiErrorMessage(err)),
     });
   }
 

@@ -52,6 +52,17 @@
     </div>
   </form>
 
+  <!-- Historial de cambios de esta rutina: solo al editar, porque al crear todavía no hay cambios -->
+  @if (id(); as workoutId) {
+    <section class="history">
+      <app-workout-changes-list
+        [workoutId]="workoutId"
+        [embedded]="true"
+        (workoutReverted)="reloadWorkout()"
+      />
+    </section>
+  }
+
   <app-confirm-modal
     [open]="confirmOpen()"
     [title]="id() ? '¿Guardar los cambios?' : '¿Crear rutina?'"
