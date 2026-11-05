@@ -16,6 +16,25 @@ export type {
 } from './workout.model';
 export { DAYS_OF_WEEK, DAY_LABELS } from './workout.model';
 export type {
+  AuditedField,
+  ChangeAction,
+  ChangeUserRef,
+  ChangeWorkoutRef,
+  FieldChange,
+  FieldChangeInput,
+  RevertResponse,
+  WorkoutChange,
+  WorkoutChangeInput,
+  WorkoutChangeListParams,
+  WorkoutChangesPage,
+} from './workout-change.model';
+export {
+  AUDITED_FIELDS,
+  AUDITED_FIELD_LABELS,
+  CHANGE_ACTIONS,
+  CHANGE_ACTION_LABELS,
+} from './workout-change.model';
+export type {
   LoginRequest,
   LoginResponse,
   RefreshResponse,
