@@ -8,6 +8,7 @@ import { Login } from './components/login/login';
 import { Register } from './components/register/register';
 import { UserForm } from './components/user-form/user-form';
 import { UsersList } from './components/users-list/users-list';
+import { WorkoutChangesList } from './components/workout-changes-list/workout-changes-list';
 import { WorkoutForm } from './components/workout-form/workout-form';
 import { WorkoutsList } from './components/workouts-list/workouts-list';
 import { adminGuard, authGuard, guestGuard } from './guards/auth.guard';
@@ -39,6 +40,15 @@ export const routes: Routes = [
     component: WorkoutForm,
     canActivate: admin,
     title: 'Editar rutina',
+  },
+
+  // Historial de cambios de las rutinas (auditoría). Pide sesión; qué botones se ven depende del rol:
+  // revertir es solo de ADMIN y editar/borrar, del autor o un ADMIN. ?workoutId= filtra por una rutina
+  {
+    path: 'workout-changes',
+    component: WorkoutChangesList,
+    canActivate: [authGuard],
+    title: 'Historial de cambios',
   },
 
   { path: 'users', component: UsersList, canActivate: admin, title: 'Usuarios' },
