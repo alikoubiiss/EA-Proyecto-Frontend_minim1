@@ -1,0 +1,172 @@
+@if (embedded()) {
+  <div class="page-header">
+    <h3>Historial de cambios</h3>
+    @if (workoutId()) {
+      <button type="button" class="secondary" (click)="openCreate()">Registrar un cambio</button>
+    }
+  </div>
+} @else {
+  <div class="page-header">
+    <h1>Historial de cambios</h1>
+    @if (workoutId()) {
+      <button type="button" class="secondary" (click)="openCreate()">Registrar un cambio</button>
+    }
+  </div>
+}
+
+<div class="toolbar">
+  <input
+    class="search"
+    type="search"
+    placeholder="Buscar por motivo o campo modificado"
+    aria-label="Buscar en el historial"
+    [(ngModel)]="search"
+    (ngModelChange)="loadPage(1)"
+  />
+  <select aria-label="Filtrar por tipo de acción" [(ngModel)]="action" (ngModelChange)="loadPage(1)">
+    <option value="">Todas las acciones</option>
+    @for (item of actions; track item) {
+      <option [value]="item">{{ actionLabels[item] }}</option>
+    }
+  </select>
+  <select aria-label="Filtrar por estado" [(ngModel)]="reverted" (ngModelChange)="loadPage(1)">
+    <option value="">Revertidos o no</option>
+    <option value="false">Sin revertir</option>
+    <option value="true">Revertidos</option>
+  </select>
+  <label class="inline-date">
+    Desde
+    <input type="date" [(ngModel)]="from" (ngModelChange)="loadPage(1)" />
+  </label>
+  <label class="inline-date">
+    Hasta
+    <input type="date" [(ngModel)]="to" (ngModelChange)="loadPage(1)" />
+  </label>
+</div>
+
+@if (error()) {
+  <p class="alert">{{ error() }}</p>
+}
+
+@if (notice()) {
+  <p class="notice">{{ notice() }}</p>
+}
+
+@if (creating() && workoutId()) {
+  <app-workout-change-form [workoutId]="workoutId()" (saved)="onSaved()" (cancelled)="closeForms()" />
+}
+
+@if (changeToEdit(); as change) {
+  <app-workout-change-form [change]="change" (saved)="onSaved()" (cancelled)="closeForms()" />
+}
+
+@if (loading()) {
+  <p class="muted">Cargando...</p>
+} @else {
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        @if (!workoutId()) {
+          <th>Rutina</th>
+        }
+        <th>Autor</th>
+        <th>Acción</th>
+        <th>Cambios</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (change of changes(); track change._id) {
+        <tr [class.deleted]="change.isDeleted">
+          <td>{{ change.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+          @if (!workoutId()) {
+            <td>
+              @if (change.workout; as workout) {
+                <a [routerLink]="['/workout-changes']" [queryParams]="{ workoutId: workout._id }">
+                  {{ workout.name }}
+                </a>
+              } @else {
+                <span class="muted">(rutina eliminada)</span>
+              }
+            </td>
+          }
+          <td>{{ change.author?.name ?? '—' }}</td>
+          <td>
+            <span class="tag">{{ actionLabels[change.action] }}</span>
+            @if (change.isDeleted) {
+              <span class="tag">Borrada</span>
+            }
+          </td>
+          <td>
+            @for (item of change.changes; track item.field) {
+              <div>
+                <strong>{{ fieldLabels[item.field] }}:</strong>
+                {{ formatValue(item, 'oldValue') }} → {{ formatValue(item, 'newValue') }}
+              </div>
+            }
+            @if (change.reason) {
+              <small class="muted">Motivo: {{ change.reason }}</small>
+            }
+          </td>
+          <td>
+            @if (change.reverted) {
+              <span class="tag">Revertido</span>
+              @if (change.revertedBy) {
+                <small class="muted">por {{ change.revertedBy.name }}</small>
+              }
+            } @else if (change.action === 'REVERT') {
+              <span class="muted">Reversión</span>
+            } @else {
+              <span class="muted">Vigente</span>
+            }
+          </td>
+          <td class="actions">
+            @if (canRevert(change)) {
+              <button type="button" (click)="askRevert(change)">Revertir</button>
+            }
+            @if (canManage(change)) {
+              @if (!change.isDeleted) {
+                <button type="button" class="secondary" (click)="openEdit(change)">Motivo</button>
+              }
+              <button type="button" class="danger" (click)="askDelete(change)">Borrar</button>
+            }
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td class="empty" [attr.colspan]="workoutId() ? 6 : 7">
+            @if (search() || action() || reverted() || from() || to()) {
+              No hay cambios con esos filtros
+            } @else {
+              No hay cambios registrados
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <app-pagination [page]="page()" [totalPages]="totalPages()" (pageChange)="loadPage($event)" />
+}
+
+<app-confirm-modal
+  [open]="!!changeToRevert()"
+  title="¿Revertir este cambio?"
+  message="La rutina volverá al valor que tenía antes de este cambio y se guardará una entrada de reversión en el historial."
+  confirmText="Revertir"
+  (confirmed)="confirmRevert()"
+  (cancelled)="cancelRevert()"
+/>
+
+<app-delete-modal
+  [open]="!!changeToDelete()"
+  itemName="entrada del historial"
+  hardNote="La rutina no se modifica."
+  [allowSoft]="modalAllowSoft()"
+  [busy]="deleting() || reverting()"
+  (softDelete)="softDelete()"
+  (hardDelete)="hardDelete()"
+  (cancelled)="cancelDelete()"
+/>
